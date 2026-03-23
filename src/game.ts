@@ -40,7 +40,7 @@ interface Piece {
 	pos: Position;
 	owner: 1 | 2;
 }
-type Block = 0 | 1 | 2;
+type Block = 0 | 1 | 2 | 3;
 
 export class GameRoom {
 	state: DurableObjectState;
@@ -62,6 +62,12 @@ export class GameRoom {
 	initGame() {
 		this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 		this.midLine = ROWS / 2;
+
+		// Create two neutral blocks in the center, horizontally centered
+		const centerRow = Math.floor(this.midLine);
+		this.grid[centerRow][4] = 3; // Neutral gray block
+		this.grid[centerRow][5] = 3; // Neutral gray block
+
 		this.gameOver = false;
 		this.gameOverBroadcasted = false;
 		this.winner = null;
@@ -170,7 +176,12 @@ export class GameRoom {
 		} else if (action === "drop") {
 			const dy = player === 1 ? 1 : -1;
 			while (this.move(piece, 0, dy)) {}
-			this.lockPiece(piece);
+			// After hard drop, check if piece disappeared or should lock
+			if (this.isPieceOutOfBounds(piece)) {
+				this.spawnPiece(player);
+			} else {
+				this.lockPiece(piece);
+			}
 		}
 
 		if (moved || action === "drop") this.broadcastState();
@@ -184,6 +195,10 @@ export class GameRoom {
 		if (this.checkCollision(piece, otherPiece)) {
 			piece.pos.x -= dx;
 			piece.pos.y -= dy;
+			return false;
+		}
+		// If piece is completely out of bounds after move, stop moving
+		if (this.isPieceOutOfBounds(piece)) {
 			return false;
 		}
 		return true;
@@ -209,17 +224,15 @@ export class GameRoom {
 				if (piece.shape[r][c] !== 0) {
 					const nx = piece.pos.x + c;
 					const ny = piece.pos.y + r;
-					// Bounds check
-					if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return true;
-					// Floor check based on dynamic midLine
-					// Player A can only go to y < midLine
-					// Player B can only go to y >= midLine
-					if (piece.owner === 1 && ny >= this.midLine) return true;
-					if (piece.owner === 2 && ny < this.midLine) return true;
-					// Grid check
-					if (this.grid[ny][nx] !== 0) return true;
-					// Check collision with other active piece
-					if (otherPiece) {
+					// Side bounds check (left/right walls)
+					if (nx < 0 || nx >= COLS) return true;
+					// Vertical bounds - let pieces pass through and disappear
+					// Player A falls down (exits at bottom), Player B falls up (exits at top)
+					// We check bounds separately in tick() for "disappear" logic
+					// Grid check (only if in bounds)
+					if (ny >= 0 && ny < ROWS && this.grid[ny][nx] !== 0) return true;
+					// Check collision with other active piece (only if in bounds)
+					if (otherPiece && ny >= 0 && ny < ROWS) {
 						for (let or = 0; or < otherPiece.shape.length; or++) {
 							for (let oc = 0; oc < otherPiece.shape[or].length; oc++) {
 								if (otherPiece.shape[or][oc] !== 0) {
@@ -234,6 +247,22 @@ export class GameRoom {
 			}
 		}
 		return false;
+	}
+
+	// Check if piece has completely left the board (should disappear)
+	isPieceOutOfBounds(piece: Piece): boolean {
+		for (let r = 0; r < piece.shape.length; r++) {
+			for (let c = 0; c < piece.shape[r].length; c++) {
+				if (piece.shape[r][c] !== 0) {
+					const ny = piece.pos.y + r;
+					// Player A falls down, disappears at bottom
+					if (piece.owner === 1 && ny < ROWS) return false;
+					// Player B falls up, disappears at top
+					if (piece.owner === 2 && ny >= 0) return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	lockPiece(piece: Piece) {
@@ -254,14 +283,11 @@ export class GameRoom {
 	}
 
 	clearLines(owner: 1 | 2) {
-		const oldMidLine = this.midLine;
-
-		// Step 1: Find full lines in player's territory
-		const playerStart = owner === 1 ? 0 : oldMidLine;
-		const playerEnd = owner === 1 ? oldMidLine : ROWS;
 		const fullRows: number[] = [];
+		let opponentBlocksDestroyed = 0;
 
-		for (let r = playerStart; r < playerEnd; r++) {
+		// Step 1: Scan ENTIRE board for full lines (allowing NTR logic!)
+		for (let r = 0; r < ROWS; r++) {
 			let isFull = true;
 			for (let c = 0; c < COLS; c++) {
 				if (this.grid[r][c] === 0) {
@@ -271,25 +297,35 @@ export class GameRoom {
 			}
 			if (isFull) {
 				fullRows.push(r);
+				// Count opponent blocks for NTR Bonus
+				for (let c = 0; c < COLS; c++) {
+					if (this.grid[r][c] === (owner === 1 ? 2 : 1)) {
+						opponentBlocksDestroyed++;
+					}
+				}
 			}
 		}
 
 		if (fullRows.length === 0) return;
+
 		const linesCleared = fullRows.length;
+		// Mechanism 2: NTR Assimilation Bonus
+		// Every 2 opponent blocks destroyed = +1 Push distance!
+		const ntrBonus = Math.floor(opponentBlocksDestroyed / 2);
+		const totalPush = linesCleared + ntrBonus;
 
 		// Step 2: Move midLine first
 		if (owner === 1) {
-			this.midLine += linesCleared;
+			this.midLine += totalPush;
 		} else {
-			this.midLine -= linesCleared;
+			this.midLine -= totalPush;
 		}
 
-		// Step 3: Shift ALL blocks to follow the midLine (the floor moved!)
-		// This includes both A's and B's blocks because they all sit on the same floor
+		// Step 3: Shift ALL blocks to follow the midLine push
 		if (owner === 1) {
 			// midLine moves down, ALL blocks shift down
 			for (let y = ROWS - 1; y >= 0; y--) {
-				const sourceY = y - linesCleared;
+				const sourceY = y - totalPush;
 				for (let x = 0; x < COLS; x++) {
 					this.grid[y][x] = sourceY >= 0 ? this.grid[sourceY][x] : 0;
 				}
@@ -297,7 +333,7 @@ export class GameRoom {
 		} else {
 			// midLine moves up, ALL blocks shift up
 			for (let y = 0; y < ROWS; y++) {
-				const sourceY = y + linesCleared;
+				const sourceY = y + totalPush;
 				for (let x = 0; x < COLS; x++) {
 					this.grid[y][x] = sourceY < ROWS ? this.grid[sourceY][x] : 0;
 				}
@@ -305,9 +341,9 @@ export class GameRoom {
 		}
 
 		// Step 4: Clear the full rows (now at new positions) and collapse
-		// Full rows shifted in the same direction as midLine
+		// Full rows shifted in the same direction as the push
 		const shiftedFullRows = fullRows.map((r) =>
-			owner === 1 ? r + linesCleared : r - linesCleared,
+			owner === 1 ? r + totalPush : r - totalPush,
 		);
 
 		// Remove the full rows and collapse
@@ -361,17 +397,49 @@ export class GameRoom {
 
 		let lockA = false;
 		let lockB = false;
+		let disappearA = false;
+		let disappearB = false;
 
 		if (this.pieceA) {
-			if (!this.move(this.pieceA, 0, 1)) lockA = true;
+			const moved = this.move(this.pieceA, 0, 1);
+			if (!moved) {
+				// Collision - check if A's piece is out of bounds (should disappear)
+				if (this.isPieceOutOfBounds(this.pieceA)) {
+					disappearA = true;
+				} else {
+					lockA = true;
+				}
+			} else {
+				// Moved successfully - check if now out of bounds
+				if (this.isPieceOutOfBounds(this.pieceA)) {
+					disappearA = true;
+				}
+			}
 		}
 		if (this.pieceB) {
-			if (!this.move(this.pieceB, 0, -1)) lockB = true;
+			const moved = this.move(this.pieceB, 0, -1);
+			if (!moved) {
+				// Collision - check if B's piece is out of bounds (should disappear)
+				if (this.isPieceOutOfBounds(this.pieceB)) {
+					disappearB = true;
+				} else {
+					lockB = true;
+				}
+			} else {
+				// Moved successfully - check if now out of bounds
+				if (this.isPieceOutOfBounds(this.pieceB)) {
+					disappearB = true;
+				}
+			}
 		}
 
 		// Handle locks AFTER both move attempts to avoid race conditions bias
 		if (lockA && this.pieceA) this.lockPiece(this.pieceA);
 		if (lockB && this.pieceB) this.lockPiece(this.pieceB);
+
+		// Handle disappearances - piece vanishes, spawn new one
+		if (disappearA) this.spawnPiece(1);
+		if (disappearB) this.spawnPiece(2);
 
 		this.broadcastState();
 

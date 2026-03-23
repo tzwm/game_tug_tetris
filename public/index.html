@@ -201,7 +201,8 @@
         
         const COLORS = {
             1: { hex: '#ff007f', rgb: '255, 0, 127' },   // Player 1 Pink
-            2: { hex: '#00f0ff', rgb: '0, 240, 255' }    // Player 2 Cyan
+            2: { hex: '#00f0ff', rgb: '0, 240, 255' },    // Player 2 Cyan
+            3: { hex: '#888888', rgb: '136, 136, 136' }    // Neutral Gray
         };
 
         // --- DOM Elements ---
@@ -382,7 +383,7 @@
                 state.grid.forEach((row, y) => {
                     row.forEach((cell, x) => {
                         if (cell !== 0) {
-                            drawBlock(x, y, COLORS[cell].hex, cell === 1 ? COLORS[1].rgb : COLORS[2].rgb);
+                            drawBlock(x, y, COLORS[cell].hex, COLORS[cell].rgb);
                         }
                     });
                 });
