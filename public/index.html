@@ -1,143 +1,593 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Tug-of-War Tetris</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Tug Tetris</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    
     <style>
-        body { background: #1a1a1a; color: #fff; text-align: center; font-family: sans-serif; }
-        canvas { border: 2px solid #333; display: block; margin: 20px auto; background: #000; }
-        #info { margin-bottom: 20px; }
-        .controls { font-size: 0.8em; color: #888; }
+        body {
+            background-color: #050505;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none; /* Prevent scroll/zoom on mobile */
+        }
+
+        /* Neon Text Utilities */
+        .neon-text-pink {
+            text-shadow: 0 0 5px #ff007f, 0 0 10px #ff007f, 0 0 20px #ff007f;
+            color: #fff;
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 5px #00f0ff, 0 0 10px #00f0ff, 0 0 20px #00f0ff;
+            color: #fff;
+        }
+        
+        /* CRT Scanline Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Canvas Container with Neon Border */
+        #canvas-wrapper {
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(255, 0, 127, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+        
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        /* Mobile Controls Styling */
+        .control-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.1s;
+        }
+        .control-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(0.9);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+        .btn-action { border-radius: 12px; font-weight: bold; font-size: 1rem; }
+
+        /* Fancy Button */
+        .neon-button {
+            background: transparent;
+            color: #00f0ff;
+            border: 2px solid #00f0ff;
+            box-shadow: 0 0 10px #00f0ff, inset 0 0 10px #00f0ff;
+            text-transform: uppercase;
+            transition: all 0.2s ease-in-out;
+        }
+        .neon-button:hover {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 20px #00f0ff, inset 0 0 20px #00f0ff;
+        }
+
+        /* Custom Scrollbar for hidden elements if any */
+        ::-webkit-scrollbar { width: 0px; }
     </style>
 </head>
-<body>
-    <div id="home" style="display: none;">
-        <h1>Tug-of-War Tetris</h1>
-        <p>A real-time competitive multiplayer Tetris in one shared grid.</p>
-        <button type="button" onclick="createRoom()" style="padding: 10px 20px; font-size: 1.2em; cursor: pointer;">Create New Room</button>
+<body class="flex flex-col items-center justify-center h-screen w-screen">
+
+    <div class="scanlines"></div>
+
+    <!-- MAIN MENU -->
+    <div id="home" class="z-10 flex flex-col items-center justify-center w-full max-w-md px-6 text-center transition-opacity duration-500">
+        <h1 class="text-5xl md:text-6xl font-black mb-2 tracking-wider">
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-cyan-500 neon-text-pink block">TUG OF WAR</span>
+            <span class="text-white neon-text-cyan">TETRIS</span>
+        </h1>
+        <p class="text-gray-400 mb-10 text-sm md:text-base">Real-time competitive grid battle.</p>
+        
+        <button type="button" onclick="createRoom()" class="neon-button px-8 py-4 text-xl font-bold tracking-widest rounded cursor-pointer w-full">
+            INITIALIZE ARENA
+        </button>
+        
+        <div class="mt-8 text-xs text-gray-500 flex flex-col gap-2">
+            <p>P1 (TOP): 💖 Pink &nbsp;|&nbsp; P2 (BTM): 🩵 Cyan</p>
+            <p>Controls: Arrows + Space</p>
+        </div>
     </div>
 
-    <div id="game-container" style="display: none;">
-        <h1>Tug-of-War Tetris</h1>
-        <div id="info">Waiting for another player...</div>
-        <canvas id="game" width="300" height="600"></canvas>
-        <div class="controls">
-            Arrows: Move/Rotate | Space: Hard Drop
+    <!-- GAME UI -->
+    <div id="game-container" class="hidden z-10 flex-col items-center justify-between w-full h-full pb-4 pt-2 md:py-8 max-w-2xl mx-auto opacity-0 transition-opacity duration-500">
+        
+        <!-- HUD Top -->
+        <div class="w-full px-4 flex justify-between items-center mb-2">
+            <div class="flex flex-col">
+                <span class="text-xs text-pink-500 font-bold tracking-widest">PLAYER 1</span>
+                <span id="p1-status" class="text-white text-sm">WAITING...</span>
+            </div>
+            
+            <div class="flex flex-col items-center">
+                <span id="room-id-display" class="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded cursor-pointer hover:text-white transition" onclick="copyInvite()">ROOM_ID</span>
+                <span id="system-info" class="text-[10px] text-yellow-400 mt-1 animate-pulse">AWAITING CONNECTION</span>
+            </div>
+
+            <div class="flex flex-col items-end">
+                <span class="text-xs text-cyan-500 font-bold tracking-widest">PLAYER 2</span>
+                <span id="p2-status" class="text-white text-sm">WAITING...</span>
+            </div>
         </div>
-        <p id="room-url" style="font-size: 0.8em; margin-top: 10px;"></p>
+
+        <!-- Canvas Area -->
+        <div id="canvas-wrapper" class="relative flex-grow flex items-center justify-center w-full max-h-[60vh] md:max-h-[75vh]">
+            <!-- Canvas dimension will be set in JS based on container size -->
+            <canvas id="game"></canvas>
+            
+            <!-- Game Over Overlay -->
+            <div id="game-over-overlay" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                <h2 id="winner-text" class="text-4xl font-black mb-4 tracking-widest"></h2>
+                <button type="button" onclick="window.location.href='/'" class="neon-button px-6 py-2 text-sm mt-4">LEAVE ARENA</button>
+            </div>
+        </div>
+
+        <!-- Progress Bar (MidLine Indicator) -->
+        <div class="w-full px-4 mt-3 mb-1 flex-shrink-0">
+            <div class="w-full h-2 bg-gray-800 rounded overflow-hidden flex relative">
+                <div id="tug-bar-p1" class="h-full bg-pink-500 shadow-[0_0_10px_#ff007f] transition-all duration-300" style="width: 50%"></div>
+                <div class="absolute top-0 bottom-0 left-1/2 w-[2px] bg-white z-10 transform -translate-x-1/2"></div>
+                <div id="tug-bar-p2" class="h-full bg-cyan-500 shadow-[0_0_10px_#00f0ff] transition-all duration-300" style="width: 50%"></div>
+            </div>
+        </div>
+
+        <!-- Mobile Controls (Visible only on small screens) -->
+        <div id="mobile-controls" class="w-full px-4 grid grid-cols-3 gap-2 mt-auto md:hidden max-w-[350px] flex-shrink-0">
+            <!-- Left col -->
+            <div class="flex flex-col justify-end gap-2">
+                <button type="button" class="control-btn w-14 h-14" data-action="left">◀</button>
+            </div>
+            <!-- Mid col -->
+            <div class="flex flex-col items-center justify-end gap-2">
+                <button type="button" class="control-btn w-14 h-14" data-action="rotate">↻</button>
+                <button type="button" class="control-btn w-14 h-14" data-action="down">▼</button>
+            </div>
+            <!-- Right col -->
+            <div class="flex flex-col items-end justify-end gap-2">
+                <button type="button" class="control-btn w-14 h-14" data-action="right">▶</button>
+                <button type="button" class="control-btn w-16 h-12 btn-action bg-red-600/20 text-red-400 border-red-500" data-action="drop">DROP</button>
+            </div>
+        </div>
+        
+        <p class="hidden md:block text-xs text-gray-500 mt-2 flex-shrink-0">ARROWS: Move/Rotate | SPACE: Hard Drop</p>
     </div>
+
+    <!-- Audio Effects (Optional future use) -->
+    <!-- <audio id="sfx-drop" src="..."></audio> -->
 
     <script>
-        const homeDiv = document.getElementById('home');
-        const gameDiv = document.getElementById('game-container');
-        const info = document.getElementById('info');
-        const roomUrlP = document.getElementById('room-url');
-        const canvas = document.getElementById('game');
-        const ctx = canvas.getContext('2d');
-
-        const BLOCK_SIZE = 30;
+        // --- Core Constants ---
         const COLS = 10;
         const ROWS = 40;
+        let BLOCK_SIZE = 20; // Will be calculated dynamically
+        
+        const COLORS = {
+            1: { hex: '#ff007f', rgb: '255, 0, 127' },   // Player 1 Pink
+            2: { hex: '#00f0ff', rgb: '0, 240, 255' }    // Player 2 Cyan
+        };
 
-        canvas.width = COLS * BLOCK_SIZE;
-        canvas.height = ROWS * 15;
+        // --- DOM Elements ---
+        const homeDiv = document.getElementById('home');
+        const gameDiv = document.getElementById('game-container');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+        
+        const sysInfo = document.getElementById('system-info');
+        const p1Status = document.getElementById('p1-status');
+        const p2Status = document.getElementById('p2-status');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const tugBarP1 = document.getElementById('tug-bar-p1');
+        const tugBarP2 = document.getElementById('tug-bar-p2');
+        
+        const gameOverOverlay = document.getElementById('game-over-overlay');
+        const winnerText = document.getElementById('winner-text');
 
+        // --- Game State Variables (must be declared before use) ---
+        let myPlayerId = null;
+        let ws = null;
+
+        // --- Routing ---
         const pathParts = window.location.pathname.split('/');
         const roomId = pathParts[1] === 'room' ? pathParts[2] : null;
 
         if (!roomId) {
-            homeDiv.style.display = 'block';
+            homeDiv.style.display = 'flex';
+            setTimeout(() => homeDiv.classList.remove('opacity-0'), 50);
         } else {
-            gameDiv.style.display = 'block';
-            roomUrlP.innerText = `Invite Link: ${window.location.href}`;
+            homeDiv.style.display = 'none';
+            gameDiv.style.display = 'flex';
+            gameDiv.classList.remove('hidden');
+            setTimeout(() => gameDiv.classList.remove('opacity-0'), 50);
+            
+            roomIdDisplay.innerText = `ROOM: ${roomId.toUpperCase()}`;
+            initEngine();
             startGame(roomId);
         }
 
         window.createRoom = () => {
-            const id = Math.random().toString(36).substring(2, 9);
+            const id = Math.random().toString(36).substring(2, 8);
             window.location.href = `/room/${id}`;
         };
 
+        window.copyInvite = () => {
+            navigator.clipboard.writeText(window.location.href);
+            const orig = roomIdDisplay.innerText;
+            roomIdDisplay.innerText = "COPIED!";
+            setTimeout(() => roomIdDisplay.innerText = orig, 2000);
+        };
+
+        // --- Visual Engine (VFX, Particles, Shake) ---
+        const particles = [];
+        const floatingTexts = [];
+        let screenShakeTime = 0;
+        let screenShakeIntensity = 0;
+        let lastMidLine = 20;
+        const _previousGrid = null;
+        
+        let gameState = null;
+        let _animationFrameId = null;
+
+        function initEngine() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            requestAnimationFrame(renderLoop);
+        }
+
+        function resizeCanvas() {
+            // Calculate optimal block size based on wrapper height
+            // We want the canvas to fit inside the wrapper
+            const wrapperRect = canvasWrapper.getBoundingClientRect();
+            // Max height available
+            const maxH = wrapperRect.height - 20; // 20px padding
+            const maxW = wrapperRect.width - 20;
+            
+            // Calculate block size to fit 40 rows
+            const bsH = Math.floor(maxH / ROWS);
+            const bsW = Math.floor(maxW / COLS);
+            
+            BLOCK_SIZE = Math.min(bsH, bsW);
+            if (BLOCK_SIZE < 10) BLOCK_SIZE = 10; // minimum clamp
+            
+            canvas.width = COLS * BLOCK_SIZE;
+            canvas.height = ROWS * BLOCK_SIZE;
+        }
+
+        function triggerShake(intensity, duration = 10) {
+            screenShakeIntensity = intensity;
+            screenShakeTime = duration;
+        }
+
+        function spawnParticles(x, y, colorStr, count = 15) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1.0,
+                    decay: 0.02 + Math.random() * 0.03,
+                    color: colorStr,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function spawnFloatingText(text, x, y, colorStr) {
+            floatingTexts.push({
+                text, x, y, life: 1.0, color: colorStr
+            });
+        }
+
+        function updateVFX() {
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.decay;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            
+            // Update Floating Texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y -= 1; // float up
+                ft.life -= 0.02;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            if (screenShakeTime > 0) {
+                screenShakeTime--;
+            }
+        }
+
+        // --- Main Render Loop ---
+        function renderLoop() {
+            updateVFX();
+            
+            // 1. Clear background (Dark with slight trail for motion blur)
+            ctx.fillStyle = 'rgba(10, 10, 15, 0.8)'; // Dark slate background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            
+            // Apply Screen Shake
+            if (screenShakeTime > 0) {
+                const dx = (Math.random() - 0.5) * screenShakeIntensity;
+                const dy = (Math.random() - 0.5) * screenShakeIntensity;
+                ctx.translate(dx, dy);
+            }
+
+            // 2. Draw Grid Lines (Faint Cyberpunk style)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let x=0; x<=COLS; x++) {
+                ctx.moveTo(x * BLOCK_SIZE, 0);
+                ctx.lineTo(x * BLOCK_SIZE, canvas.height);
+            }
+            for(let y=0; y<=ROWS; y++) {
+                ctx.moveTo(0, y * BLOCK_SIZE);
+                ctx.lineTo(canvas.width, y * BLOCK_SIZE);
+            }
+            ctx.stroke();
+
+            // 3. Render Game State
+            if (gameState) {
+                const state = gameState;
+                
+                // Set global composition for neon bloom
+                ctx.globalCompositeOperation = 'screen';
+
+                // Draw Grid Blocks
+                state.grid.forEach((row, y) => {
+                    row.forEach((cell, x) => {
+                        if (cell !== 0) {
+                            drawBlock(x, y, COLORS[cell].hex, cell === 1 ? COLORS[1].rgb : COLORS[2].rgb);
+                        }
+                    });
+                });
+
+                // Draw Active Pieces
+                if (state.pieceA) drawPiece(state.pieceA, COLORS[1].hex, COLORS[1].rgb);
+                if (state.pieceB) drawPiece(state.pieceB, COLORS[2].hex, COLORS[2].rgb);
+
+                ctx.globalCompositeOperation = 'source-over';
+
+                // 4. Draw MidLine (Laser Beam)
+                const midY = state.midLine * BLOCK_SIZE;
+                
+                // Outer glow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#fff';
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, midY);
+                // add slight jaggedness to laser
+                for(let lx=0; lx<canvas.width; lx+=20) {
+                    ctx.lineTo(lx, midY + (Math.random() - 0.5)*4);
+                }
+                ctx.lineTo(canvas.width, midY);
+                ctx.stroke();
+                
+                ctx.shadowBlur = 0; // reset
+            }
+
+            // 5. Render VFX
+            ctx.globalCompositeOperation = 'lighter';
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            floatingTexts.forEach(ft => {
+                ctx.fillStyle = ft.color;
+                ctx.globalAlpha = ft.life;
+                ctx.font = 'bold 16px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.globalCompositeOperation = 'source-over';
+
+            ctx.restore();
+            _animationFrameId = requestAnimationFrame(renderLoop);
+        }
+
+        function drawPiece(piece, hex, rgbStr) {
+            piece.shape.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    if (cell) {
+                        drawBlock(piece.pos.x + c, piece.pos.y + r, hex, rgbStr, true);
+                    }
+                });
+            });
+        }
+
+        function drawBlock(x, y, hex, _rgbStr, isActive = false) {
+            const px = x * BLOCK_SIZE;
+            const py = y * BLOCK_SIZE;
+            const bs = BLOCK_SIZE;
+            
+            // Core
+            ctx.fillStyle = hex;
+            ctx.fillRect(px + 1, py + 1, bs - 2, bs - 2);
+            
+            // Inner Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(px + 3, py + 3, bs - 6, bs - 6);
+            
+            // Glow effect for active pieces
+            if (isActive) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = hex;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px + 1, py + 1, bs - 2, bs - 2);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // --- Game Logic & Network ---
         function startGame(id) {
             const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${wsProtocol}//${location.host}/ws/${id}`);
+            ws = new WebSocket(`${wsProtocol}//${location.host}/ws/${id}`);
 
-            let player = null;
+            ws.onopen = () => {
+                sysInfo.innerText = "CONNECTED";
+                sysInfo.classList.remove('text-yellow-400', 'animate-pulse');
+                sysInfo.classList.add('text-green-400');
+            };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'init') {
-                    player = data.player;
-                    info.innerText = player ? `You are Player ${player === 1 ? 'TOP' : 'BOTTOM'}` : 'Spectating';
+                    myPlayerId = data.player;
+                    if (myPlayerId === 1) {
+                        p1Status.innerText = "YOU (P1)";
+                        p1Status.classList.add('neon-text-pink');
+                    } else if (myPlayerId === 2) {
+                        p2Status.innerText = "YOU (P2)";
+                        p2Status.classList.add('neon-text-cyan');
+                    } else {
+                        sysInfo.innerText = "SPECTATING";
+                    }
                 } else if (data.type === 'start') {
-                    info.innerText = `${player ? `You are Player ${player === 1 ? 'TOP' : 'BOTTOM'}` : 'Spectating'} - Match Started!`;
+                    sysInfo.innerText = "BATTLE COMMENCED";
+                    p1Status.innerText = myPlayerId === 1 ? "YOU" : "ACTIVE";
+                    p2Status.innerText = myPlayerId === 2 ? "YOU" : "ACTIVE";
+                    triggerShake(10, 20); // Big shake on start
                 } else if (data.type === 'state') {
-                    render(data);
+                    processNewState(data);
                 } else if (data.type === 'gameover') {
-                    info.innerText = `Game Over! Winner: Player ${data.winner}`;
+                    sysInfo.innerText = "SYSTEM HALTED";
+                    gameOverOverlay.classList.remove('hidden');
+                    if (data.winner === myPlayerId) {
+                        winnerText.innerText = "VICTORY";
+                        winnerText.className = `text-5xl font-black mb-4 tracking-widest neon-text-${myPlayerId === 1 ? 'pink' : 'cyan'}`;
+                    } else {
+                        winnerText.innerText = "DEFEAT";
+                        winnerText.className = "text-5xl font-black mb-4 tracking-widest text-red-600 drop-shadow-[0_0_10px_red]";
+                    }
                 }
             };
-
-            const COLORS = [null, '#ff3e3e', '#3e8bff']; // Player 1 (Red), Player 2 (Blue)
-
-            function render(state) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Draw grid
-                state.grid.forEach((row, y) => {
-                    row.forEach((cell, x) => {
-                        if (cell !== 0) {
-                            drawBlock(x, y, COLORS[cell]);
-                        }
-                    });
-                });
-
-                // Draw active pieces
-                if (state.pieceA) drawPiece(state.pieceA, COLORS[1]);
-                if (state.pieceB) drawPiece(state.pieceB, COLORS[2]);
-
-                // Draw dynamic center line (visual guide)
-                const midY = state.midLine * 15;
-                ctx.strokeStyle = '#ffff00';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(0, midY);
-                ctx.lineTo(canvas.width, midY);
-                ctx.stroke();
-                ctx.lineWidth = 1;
-            }
-
-            function drawPiece(piece, color) {
-                piece.shape.forEach((row, r) => {
-                    row.forEach((cell, c) => {
-                        if (cell) {
-                            drawBlock(piece.pos.x + c, piece.pos.y + r, color);
-                        }
-                    });
-                });
-            }
-
-            function drawBlock(x, y, color) {
-                ctx.fillStyle = color;
-                ctx.fillRect(x * BLOCK_SIZE, y * 15, BLOCK_SIZE, 15);
-                ctx.strokeStyle = '#000';
-                ctx.strokeRect(x * BLOCK_SIZE, y * 15, BLOCK_SIZE, 15);
-            }
-
-            window.addEventListener('keydown', (e) => {
-                if (!player) return;
-                let action = null;
-                if (e.key === 'ArrowLeft') action = 'left';
-                if (e.key === 'ArrowRight') action = 'right';
-                if (e.key === 'ArrowUp') action = 'rotate';
-                if (e.key === 'ArrowDown') action = 'down';
-                if (e.key === ' ') action = 'drop';
-
-                if (action) {
-                    ws.send(JSON.stringify({ action }));
-                }
-            });
+            
+            ws.onclose = () => {
+                sysInfo.innerText = "CONNECTION LOST";
+                sysInfo.classList.add('text-red-500');
+            };
         }
+
+        function processNewState(newState) {
+            // Detect Line Clears and Drops for VFX
+            if (gameState) {
+                // Line clear detection (midline changed)
+                const lineDiff = Math.abs(newState.midLine - lastMidLine);
+                if (lineDiff > 0) {
+                    triggerShake(5 * lineDiff, 15);
+                    const yPos = Math.min(newState.midLine, lastMidLine) * BLOCK_SIZE;
+                    spawnParticles(canvas.width/2, yPos, '#fff', 50 * lineDiff);
+                    
+                    // Show Combo Text
+                    const txt = lineDiff === 4 ? "TETRIS!" : (lineDiff > 1 ? `COMBO x${lineDiff}` : "CLEAR!");
+                    const col = newState.midLine > lastMidLine ? COLORS[1].hex : COLORS[2].hex;
+                    spawnFloatingText(txt, canvas.width/2, yPos, col);
+                }
+                
+                // Hard Drop / Block Placement detection
+                // We can loosely infer a drop if grid changed significantly without midline change
+                // But simple shake on line clear is enough to feel juicy.
+            }
+            
+            gameState = newState;
+            lastMidLine = newState.midLine;
+            
+            // Update Tug Bar UI
+            const p1Percent = (newState.midLine / ROWS) * 100;
+            const p2Percent = 100 - p1Percent;
+            tugBarP1.style.width = `${p1Percent}%`;
+            tugBarP2.style.width = `${p2Percent}%`;
+        }
+
+        // --- Input Handling ---
+        function sendAction(action) {
+            if (!myPlayerId || !ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ action }));
+            
+            // Client-side prediction VFX for Hard Drop
+            if (action === 'drop') {
+                triggerShake(8, 10);
+            }
+        }
+
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+            if (gameOverOverlay && !gameOverOverlay.classList.contains('hidden')) return;
+            
+            let action = null;
+            if (e.key === 'ArrowLeft') action = 'left';
+            if (e.key === 'ArrowRight') action = 'right';
+            if (e.key === 'ArrowUp') action = 'rotate';
+            if (e.key === 'ArrowDown') action = 'down';
+            if (e.key === ' ') { action = 'drop'; e.preventDefault(); } // prevent scrolling
+
+            if (action) {
+                sendAction(action);
+            }
+        });
+
+        // Mobile On-Screen Buttons
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            // Use touchstart for zero latency on mobile
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // prevent mouse emulation
+                sendAction(btn.dataset.action);
+            }, {passive: false});
+            
+            // Fallback for mouse click on dev tools
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                sendAction(btn.dataset.action);
+            });
+        });
 
     </script>
 </body>
