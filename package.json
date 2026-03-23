@@ -1,0 +1,32 @@
+{
+	"name": "game_tug_tetris",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"lint": "biome check .",
+		"format": "biome format --write ."
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.28.2",
+	"dependencies": {
+		"hono": "^4.12.9"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.8",
+		"@cloudflare/workers-types": "^4.20260317.1",
+		"typescript": "^5.9.3",
+		"wrangler": "^4.76.0"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild",
+			"sharp",
+			"workerd"
+		]
+	}
+}

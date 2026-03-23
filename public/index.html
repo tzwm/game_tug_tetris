@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Tug-of-War Tetris</title>
+    <style>
+        body { background: #1a1a1a; color: #fff; text-align: center; font-family: sans-serif; }
+        canvas { border: 2px solid #333; display: block; margin: 20px auto; background: #000; }
+        #info { margin-bottom: 20px; }
+        .controls { font-size: 0.8em; color: #888; }
+    </style>
+</head>
+<body>
+    <div id="home" style="display: none;">
+        <h1>Tug-of-War Tetris</h1>
+        <p>A real-time competitive multiplayer Tetris in one shared grid.</p>
+        <button type="button" onclick="createRoom()" style="padding: 10px 20px; font-size: 1.2em; cursor: pointer;">Create New Room</button>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <h1>Tug-of-War Tetris</h1>
+        <div id="info">Waiting for another player...</div>
+        <canvas id="game" width="300" height="600"></canvas>
+        <div class="controls">
+            Arrows: Move/Rotate | Space: Hard Drop
+        </div>
+        <p id="room-url" style="font-size: 0.8em; margin-top: 10px;"></p>
+    </div>
+
+    <script>
+        const homeDiv = document.getElementById('home');
+        const gameDiv = document.getElementById('game-container');
+        const info = document.getElementById('info');
+        const roomUrlP = document.getElementById('room-url');
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+
+        const BLOCK_SIZE = 30;
+        const COLS = 10;
+        const ROWS = 40;
+
+        canvas.width = COLS * BLOCK_SIZE;
+        canvas.height = ROWS * 15;
+
+        const pathParts = window.location.pathname.split('/');
+        const roomId = pathParts[1] === 'room' ? pathParts[2] : null;
+
+        if (!roomId) {
+            homeDiv.style.display = 'block';
+        } else {
+            gameDiv.style.display = 'block';
+            roomUrlP.innerText = `Invite Link: ${window.location.href}`;
+            startGame(roomId);
+        }
+
+        window.createRoom = () => {
+            const id = Math.random().toString(36).substring(2, 9);
+            window.location.href = `/room/${id}`;
+        };
+
+        function startGame(id) {
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${wsProtocol}//${location.host}/ws/${id}`);
+
+            let player = null;
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'init') {
+                    player = data.player;
+                    info.innerText = player ? `You are Player ${player === 1 ? 'TOP' : 'BOTTOM'}` : 'Spectating';
+                } else if (data.type === 'start') {
+                    info.innerText = `${player ? `You are Player ${player === 1 ? 'TOP' : 'BOTTOM'}` : 'Spectating'} - Match Started!`;
+                } else if (data.type === 'state') {
+                    render(data);
+                } else if (data.type === 'gameover') {
+                    info.innerText = `Game Over! Winner: Player ${data.winner}`;
+                }
+            };
+
+            const COLORS = [null, '#ff3e3e', '#3e8bff']; // Player 1 (Red), Player 2 (Blue)
+
+            function render(state) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw grid
+                state.grid.forEach((row, y) => {
+                    row.forEach((cell, x) => {
+                        if (cell !== 0) {
+                            drawBlock(x, y, COLORS[cell]);
+                        }
+                    });
+                });
+
+                // Draw active pieces
+                if (state.pieceA) drawPiece(state.pieceA, COLORS[1]);
+                if (state.pieceB) drawPiece(state.pieceB, COLORS[2]);
+
+                // Draw dynamic center line (visual guide)
+                const midY = state.midLine * 15;
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, midY);
+                ctx.lineTo(canvas.width, midY);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            }
+
+            function drawPiece(piece, color) {
+                piece.shape.forEach((row, r) => {
+                    row.forEach((cell, c) => {
+                        if (cell) {
+                            drawBlock(piece.pos.x + c, piece.pos.y + r, color);
+                        }
+                    });
+                });
+            }
+
+            function drawBlock(x, y, color) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x * BLOCK_SIZE, y * 15, BLOCK_SIZE, 15);
+                ctx.strokeStyle = '#000';
+                ctx.strokeRect(x * BLOCK_SIZE, y * 15, BLOCK_SIZE, 15);
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (!player) return;
+                let action = null;
+                if (e.key === 'ArrowLeft') action = 'left';
+                if (e.key === 'ArrowRight') action = 'right';
+                if (e.key === 'ArrowUp') action = 'rotate';
+                if (e.key === 'ArrowDown') action = 'down';
+                if (e.key === ' ') action = 'drop';
+
+                if (action) {
+                    ws.send(JSON.stringify({ action }));
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
