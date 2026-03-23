@@ -122,69 +122,75 @@
     </div>
 
     <!-- GAME UI -->
-    <div id="game-container" class="hidden z-10 flex-col items-center justify-between w-full h-full pb-4 pt-2 md:py-8 max-w-2xl mx-auto opacity-0 transition-opacity duration-500">
+    <div id="game-container" class="hidden z-10 w-full h-full p-2 md:p-6 opacity-0 transition-opacity duration-500 flex items-center justify-center">
         
-        <!-- HUD Top -->
-        <div class="w-full px-4 flex justify-between items-center mb-2">
-            <div class="flex flex-col">
-                <span class="text-xs text-pink-500 font-bold tracking-widest">PLAYER 1</span>
-                <span id="p1-status" class="text-white text-sm">WAITING...</span>
-            </div>
+        <!-- Main Layout Wrapper: Column on Mobile, Row on PC -->
+        <div class="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-4 md:gap-8 w-full h-full max-w-7xl mx-auto">
             
-            <div class="flex flex-col items-center">
-                <span id="room-id-display" class="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded cursor-pointer hover:text-white transition" onclick="copyInvite()">ROOM_ID</span>
-                <span id="system-info" class="text-[10px] text-yellow-400 mt-1 animate-pulse">AWAITING CONNECTION</span>
+            <!-- Left Panel (P1 Info & Room) -->
+            <div class="flex flex-row md:flex-col justify-between items-center md:items-start w-full md:w-64 flex-shrink-0 md:pt-10">
+                <div class="flex flex-col">
+                    <span class="text-xs text-pink-500 font-bold tracking-widest">PLAYER 1 (TOP)</span>
+                    <span id="p1-status" class="text-white text-sm md:text-2xl mt-1 font-black">WAITING...</span>
+                </div>
+                
+                <div class="flex flex-col items-center md:items-start md:mt-auto">
+                    <span class="text-[10px] text-gray-500 mb-1">ARENA LINK</span>
+                    <span id="room-id-display" class="text-xs md:text-sm text-cyan-400 bg-cyan-900/30 border border-cyan-500/50 px-3 py-1.5 rounded cursor-pointer hover:bg-cyan-800/50 transition shadow-[0_0_10px_rgba(0,240,255,0.2)]" onclick="copyInvite()">ROOM_ID</span>
+                    <span id="system-info" class="text-[10px] md:text-xs text-yellow-400 mt-3 animate-pulse">AWAITING CONNECTION</span>
+                </div>
             </div>
 
-            <div class="flex flex-col items-end">
-                <span class="text-xs text-cyan-500 font-bold tracking-widest">PLAYER 2</span>
-                <span id="p2-status" class="text-white text-sm">WAITING...</span>
-            </div>
-        </div>
+            <!-- Center Panel (Canvas & Tug Bar) - TALL AS POSSIBLE -->
+            <div class="flex flex-col items-center justify-center flex-grow w-full max-w-[350px] md:max-w-none md:w-auto h-[70vh] md:h-[90vh]">
+                <!-- Canvas Wrapper: takes up remaining height -->
+                <div id="canvas-wrapper" class="relative flex-grow flex items-center justify-center w-full min-w-[200px] md:min-w-[300px] h-full overflow-hidden">
+                    <canvas id="game" class="h-full object-contain"></canvas>
+                    
+                    <!-- Game Over Overlay -->
+                    <div id="game-over-overlay" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 rounded">
+                        <h2 id="winner-text" class="text-4xl md:text-6xl font-black mb-6 tracking-widest text-center px-4 leading-tight"></h2>
+                        <button type="button" onclick="window.location.href='/'" class="neon-button px-8 py-3 text-sm md:text-lg font-bold">LEAVE ARENA</button>
+                    </div>
+                </div>
 
-        <!-- Canvas Area -->
-        <div id="canvas-wrapper" class="relative flex-grow flex items-center justify-center w-full max-h-[85vh] md:max-h-[90vh]">
-            <!-- Canvas dimension will be set in JS based on container size -->
-            <canvas id="game"></canvas>
-            
-            <!-- Game Over Overlay -->
-            <div id="game-over-overlay" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                <h2 id="winner-text" class="text-4xl font-black mb-4 tracking-widest"></h2>
-                <button type="button" onclick="window.location.href='/'" class="neon-button px-6 py-2 text-sm mt-4">LEAVE ARENA</button>
+                <!-- Progress Bar (MidLine Indicator) -->
+                <div class="w-full mt-4 flex-shrink-0">
+                    <div class="w-full h-3 md:h-5 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden flex relative">
+                        <div id="tug-bar-p1" class="h-full bg-pink-500 shadow-[0_0_15px_#ff007f] transition-all duration-300" style="width: 50%"></div>
+                        <div class="absolute top-0 bottom-0 left-1/2 w-[2px] md:w-[4px] bg-white z-10 transform -translate-x-1/2 shadow-[0_0_10px_white]"></div>
+                        <div id="tug-bar-p2" class="h-full bg-cyan-500 shadow-[0_0_15px_#00f0ff] transition-all duration-300" style="width: 50%"></div>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <!-- Progress Bar (MidLine Indicator) -->
-        <div class="w-full px-4 mt-3 mb-1 flex-shrink-0">
-            <div class="w-full h-2 bg-gray-800 rounded overflow-hidden flex relative">
-                <div id="tug-bar-p1" class="h-full bg-pink-500 shadow-[0_0_10px_#ff007f] transition-all duration-300" style="width: 50%"></div>
-                <div class="absolute top-0 bottom-0 left-1/2 w-[2px] bg-white z-10 transform -translate-x-1/2"></div>
-                <div id="tug-bar-p2" class="h-full bg-cyan-500 shadow-[0_0_10px_#00f0ff] transition-all duration-300" style="width: 50%"></div>
-            </div>
-        </div>
+            <!-- Right Panel (P2 Info & Controls) -->
+            <div class="flex flex-row md:flex-col justify-between items-center md:items-end w-full md:w-64 flex-shrink-0 md:pt-10 md:pb-10">
+                <div class="flex flex-col text-right">
+                    <span class="text-xs text-cyan-500 font-bold tracking-widest">PLAYER 2 (BTM)</span>
+                    <span id="p2-status" class="text-white text-sm md:text-2xl mt-1 font-black">WAITING...</span>
+                </div>
 
-        <!-- Mobile Controls (Visible only on small screens) -->
-        <div id="mobile-controls" class="w-full px-4 grid grid-cols-3 gap-2 mt-auto md:hidden max-w-[350px] flex-shrink-0">
-            <!-- Left col -->
-            <div class="flex flex-col justify-end gap-2">
-                <button type="button" class="control-btn w-14 h-14" data-action="left">◀</button>
+                <!-- Mobile Controls -->
+                <div id="mobile-controls" class="w-full flex justify-center gap-2 mt-2 md:hidden">
+                    <div class="flex flex-col justify-end"><button type="button" class="control-btn w-12 h-12" data-action="left">◀</button></div>
+                    <div class="flex flex-col justify-end gap-1"><button type="button" class="control-btn w-12 h-12" data-action="rotate">↻</button><button type="button" class="control-btn w-12 h-12" data-action="down">▼</button></div>
+                    <div class="flex flex-col justify-end"><button type="button" class="control-btn w-12 h-12" data-action="right">▶</button></div>
+                    <div class="flex flex-col justify-end pl-2"><button type="button" class="control-btn w-14 h-14 btn-action bg-red-600/20 text-red-400 border-red-500" data-action="drop">DROP</button></div>
+                </div>
+                
+                <!-- PC Controls Info -->
+                <div class="hidden md:flex flex-col text-right mt-auto bg-gray-900/60 p-5 border border-gray-800 rounded-lg shadow-xl">
+                    <span class="text-cyan-500 font-bold text-sm tracking-widest mb-3">COMMANDS</span>
+                    <div class="flex justify-end items-center text-sm text-gray-400 mb-2"><span>Move / Rotate</span> <span class="w-20 font-mono text-white text-right">ARROWS</span></div>
+                    <div class="flex justify-end items-center text-sm text-gray-400"><span class="text-pink-400">Hard Drop</span> <span class="w-20 font-mono text-white text-right">SPACE</span></div>
+                </div>
             </div>
-            <!-- Mid col -->
-            <div class="flex flex-col items-center justify-end gap-2">
-                <button type="button" class="control-btn w-14 h-14" data-action="rotate">↻</button>
-                <button type="button" class="control-btn w-14 h-14" data-action="down">▼</button>
-            </div>
-            <!-- Right col -->
-            <div class="flex flex-col items-end justify-end gap-2">
-                <button type="button" class="control-btn w-14 h-14" data-action="right">▶</button>
-                <button type="button" class="control-btn w-16 h-12 btn-action bg-red-600/20 text-red-400 border-red-500" data-action="drop">DROP</button>
-            </div>
+
         </div>
-        
-        <p class="hidden md:block text-xs text-gray-500 mt-2 flex-shrink-0">ARROWS: Move/Rotate | SPACE: Hard Drop</p>
     </div>
 
-    <!-- Audio Effects (Optional future use) -->
+        <!-- Audio Effects (Optional future use) -->
     <!-- <audio id="sfx-drop" src="..."></audio> -->
 
     <script>
