@@ -50,6 +50,7 @@ export class GameRoom {
 	pieceB: Piece | null = null;
 	loopId: ReturnType<typeof setInterval> | null = null;
 	gameOver: boolean = false;
+	gameOverBroadcasted: boolean = false;
 	winner: 1 | 2 | null = null;
 	midLine: number = ROWS / 2; // Dynamic center line
 
@@ -61,10 +62,11 @@ export class GameRoom {
 	initGame() {
 		this.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 		this.midLine = ROWS / 2;
+		this.gameOver = false;
+		this.gameOverBroadcasted = false;
+		this.winner = null;
 		this.spawnPiece(1);
 		this.spawnPiece(2);
-		this.gameOver = false;
-		this.winner = null;
 	}
 
 	spawnPiece(owner: 1 | 2) {
@@ -74,6 +76,7 @@ export class GameRoom {
 			if (this.checkCollision(this.pieceA, this.pieceB)) {
 				this.gameOver = true;
 				this.winner = 2; // B wins if A can't spawn
+				this.broadcastGameOver();
 			}
 		} else {
 			// B spawns at the bottom. Since shape is top-left anchored, y should be ROWS - shape.length
@@ -81,6 +84,7 @@ export class GameRoom {
 			if (this.checkCollision(this.pieceB, this.pieceA)) {
 				this.gameOver = true;
 				this.winner = 1;
+				this.broadcastGameOver();
 			}
 		}
 	}
@@ -124,7 +128,8 @@ export class GameRoom {
 
 	webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
 		const session = this.sessions.find((s) => s.ws === ws);
-		if (!session || !session.player || this.gameOver) return;
+		// Only accept input when game is running (loopId exists) and not over
+		if (!session || !session.player || !this.loopId || this.gameOver) return;
 
 		try {
 			const data = JSON.parse(message as string);
@@ -136,9 +141,15 @@ export class GameRoom {
 
 	webSocketClose(ws: WebSocket) {
 		this.sessions = this.sessions.filter((s) => s.ws !== ws);
-		if (this.sessions.length === 0 && this.loopId) {
-			clearInterval(this.loopId);
-			this.loopId = null;
+		if (this.sessions.length === 0) {
+			// Room is empty, stop the game loop
+			if (this.loopId) {
+				clearInterval(this.loopId);
+				this.loopId = null;
+			}
+			// Reset game state for next players
+			this.gameOver = true;
+			this.gameOverBroadcasted = false;
 		}
 	}
 
@@ -163,6 +174,7 @@ export class GameRoom {
 		}
 
 		if (moved || action === "drop") this.broadcastState();
+		if (this.gameOver) this.broadcastGameOver();
 	}
 
 	move(piece: Piece, dx: number, dy: number): boolean {
@@ -364,8 +376,7 @@ export class GameRoom {
 		this.broadcastState();
 
 		if (this.gameOver) {
-			this.broadcast({ type: "gameover", winner: this.winner });
-			if (this.loopId) clearInterval(this.loopId);
+			this.broadcastGameOver();
 		}
 	}
 
@@ -389,5 +400,15 @@ export class GameRoom {
 				// ignore
 			}
 		});
+	}
+
+	broadcastGameOver() {
+		if (this.gameOverBroadcasted) return;
+		this.gameOverBroadcasted = true;
+		this.broadcast({ type: "gameover", winner: this.winner });
+		if (this.loopId) {
+			clearInterval(this.loopId);
+			this.loopId = null;
+		}
 	}
 }
