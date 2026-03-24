@@ -407,6 +407,10 @@
                     });
                 });
 
+                // Draw Ghost Pieces (landing preview)
+                if (state.pieceA && state.ghostA) drawGhostPiece(state.pieceA, state.ghostA, COLORS[1].hex);
+                if (state.pieceB && state.ghostB) drawGhostPiece(state.pieceB, state.ghostB, COLORS[2].hex);
+
                 // Draw Active Pieces
                 if (state.pieceA) drawPiece(state.pieceA, COLORS[1].hex, COLORS[1].rgb);
                 if (state.pieceB) drawPiece(state.pieceB, COLORS[2].hex, COLORS[2].rgb);
@@ -462,6 +466,25 @@
                 row.forEach((cell, c) => {
                     if (cell) {
                         drawBlock(piece.pos.x + c, piece.pos.y + r, hex, rgbStr, true);
+                    }
+                });
+            });
+        }
+
+        function drawGhostPiece(piece, ghostPos, hex) {
+            piece.shape.forEach((row, r) => {
+                row.forEach((cell, c) => {
+                    if (cell) {
+                        const px = (ghostPos.x + c) * BLOCK_SIZE;
+                        const py = (ghostPos.y + r) * BLOCK_SIZE;
+                        const bs = BLOCK_SIZE;
+                        
+                        // Draw outline only (no fill)
+                        ctx.strokeStyle = hex;
+                        ctx.lineWidth = 2;
+                        ctx.globalAlpha = 0.4;
+                        ctx.strokeRect(px + 2, py + 2, bs - 4, bs - 4);
+                        ctx.globalAlpha = 1.0;
                     }
                 });
             });

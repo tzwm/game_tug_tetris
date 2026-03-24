@@ -474,12 +474,37 @@ export class GameRoom {
 		if (this.gameOver) this.broadcastGameOver();
 	}
 
+	getGhostPosition(piece: Piece): Position {
+		const ghost = { ...piece, pos: { ...piece.pos } };
+		const dy = piece.owner === 1 ? 1 : -1;
+		const otherPiece = piece.owner === 1 ? this.pieceB : this.pieceA;
+
+		while (true) {
+			ghost.pos.y += dy;
+			if (this.checkCollision(ghost, otherPiece)) {
+				ghost.pos.y -= dy;
+				break;
+			}
+			if (this.isPieceOutOfBounds(ghost)) {
+				ghost.pos.y -= dy;
+				break;
+			}
+		}
+
+		return ghost.pos;
+	}
+
 	broadcastState() {
+		const ghostA = this.pieceA ? this.getGhostPosition(this.pieceA) : null;
+		const ghostB = this.pieceB ? this.getGhostPosition(this.pieceB) : null;
+
 		this.broadcast({
 			type: "state",
 			grid: this.grid,
 			pieceA: this.pieceA,
 			pieceB: this.pieceB,
+			ghostA,
+			ghostB,
 			midLine: this.midLine,
 		});
 	}
