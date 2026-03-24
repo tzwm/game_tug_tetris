@@ -2,7 +2,7 @@ import type { DurableObjectState, WebSocket } from "@cloudflare/workers-types";
 
 const COLS = 10;
 const ROWS = 40;
-const GHOST_LIFETIME_TICKS = 4; // 2s at 500ms per tick
+const GHOST_LIFETIME_TICKS = 6; // 3s at 500ms per tick
 
 const SHAPES = [
 	[[1, 1, 1, 1]], // I
