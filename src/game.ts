@@ -4,6 +4,13 @@ const COLS = 10;
 const ROWS = 40;
 const GHOST_LIFETIME_TICKS = 6; // 3s at 500ms per tick
 
+// Speed system constants
+const INITIAL_TICK_INTERVAL = 500;
+const MIN_TICK_INTERVAL = 150;
+const SPEED_STEP = 50;
+const LINES_PER_SPEEDUP = 10;
+const MAX_SPEED_LEVEL = 8;
+
 const SHAPES = [
 	[[1, 1, 1, 1]], // I
 	[
@@ -50,11 +57,14 @@ export class GameRoom {
 	ghostTimers: number[][] = [];
 	pieceA: Piece | null = null;
 	pieceB: Piece | null = null;
-	loopId: ReturnType<typeof setInterval> | null = null;
+	loopId: ReturnType<typeof setTimeout> | null = null;
 	gameOver = false;
 	gameOverBroadcasted = false;
 	winner: 1 | 2 | null = null;
 	midLine = ROWS / 2;
+	linesCleared = 0;
+	speedLevel = 1;
+	tickInterval = INITIAL_TICK_INTERVAL;
 
 	constructor(state: DurableObjectState) {
 		this.state = state;
@@ -73,8 +83,23 @@ export class GameRoom {
 		this.gameOver = false;
 		this.gameOverBroadcasted = false;
 		this.winner = null;
+		this.linesCleared = 0;
+		this.speedLevel = 1;
+		this.tickInterval = INITIAL_TICK_INTERVAL;
 		this.spawnPiece(1);
 		this.spawnPiece(2);
+	}
+
+	startGameLoop() {
+		if (this.loopId) return;
+		this.tickInterval = INITIAL_TICK_INTERVAL;
+		this.loopId = setTimeout(() => this.gameLoop(), this.tickInterval);
+	}
+
+	gameLoop() {
+		if (this.gameOver || !this.loopId) return;
+		this.tick();
+		this.loopId = setTimeout(() => this.gameLoop(), this.tickInterval);
 	}
 
 	spawnPiece(owner: 1 | 2) {
@@ -114,7 +139,7 @@ export class GameRoom {
 
 		if (!this.loopId && this.sessions.filter((s) => s.player).length === 2) {
 			this.initGame();
-			this.loopId = setInterval(() => this.tick(), 500);
+			this.startGameLoop();
 			this.broadcast({ type: "start" });
 		} else if (this.loopId) {
 			this.broadcastState();
@@ -139,7 +164,7 @@ export class GameRoom {
 		this.sessions = this.sessions.filter((s) => s.ws !== ws);
 		if (this.sessions.length === 0) {
 			if (this.loopId) {
-				clearInterval(this.loopId);
+				clearTimeout(this.loopId);
 				this.loopId = null;
 			}
 			this.gameOver = true;
@@ -359,6 +384,22 @@ export class GameRoom {
 		if (fullRows.length === 0) return;
 
 		const linesCleared = fullRows.length;
+		this.linesCleared += linesCleared;
+
+		// Check for speed level up
+		const newSpeedLevel = Math.min(
+			MAX_SPEED_LEVEL,
+			Math.floor(this.linesCleared / LINES_PER_SPEEDUP) + 1,
+		);
+		if (newSpeedLevel > this.speedLevel) {
+			this.speedLevel = newSpeedLevel;
+			this.tickInterval = Math.max(
+				MIN_TICK_INTERVAL,
+				INITIAL_TICK_INTERVAL - (this.speedLevel - 1) * SPEED_STEP,
+			);
+			this.broadcast({ type: "speedup", level: this.speedLevel });
+		}
+
 		const ntrBonus = Math.floor(opponentBlocksDestroyed / 2);
 		const totalPush = linesCleared + ntrBonus;
 
@@ -506,6 +547,8 @@ export class GameRoom {
 			ghostA,
 			ghostB,
 			midLine: this.midLine,
+			speedLevel: this.speedLevel,
+			linesCleared: this.linesCleared,
 		});
 	}
 
@@ -525,7 +568,7 @@ export class GameRoom {
 		this.gameOverBroadcasted = true;
 		this.broadcast({ type: "gameover", winner: this.winner });
 		if (this.loopId) {
-			clearInterval(this.loopId);
+			clearTimeout(this.loopId);
 			this.loopId = null;
 		}
 	}

@@ -172,7 +172,13 @@
                 </div>
 
                 <!-- Progress Bar (MidLine Indicator) -->
-                <div class="w-full mt-4 flex-shrink-0">
+                <div class="w-full flex justify-center mb-2">
+                    <div id="speed-display" class="text-xs md:text-sm font-bold tracking-widest text-gray-400">
+                        SPEED: <span id="speed-level" class="text-white">1</span>
+                        <span class="text-gray-500 ml-2">LINES: <span id="lines-count" class="text-gray-300">0</span></span>
+                    </div>
+                </div>
+                <div class="w-full flex-shrink-0">
                     <div class="w-full h-3 md:h-5 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden flex relative">
                         <div id="tug-bar-p1" class="h-full bg-pink-500 shadow-[0_0_15px_#ff007f] transition-all duration-300" style="width: 50%"></div>
                         <div class="absolute top-0 bottom-0 left-1/2 w-[2px] md:w-[4px] bg-white z-10 transform -translate-x-1/2 shadow-[0_0_10px_white]"></div>
@@ -335,6 +341,39 @@
             floatingTexts.push({
                 text, x, y, life: 1.0, color: colorStr
             });
+        }
+
+        function triggerSpeedUp(level) {
+            // Screen flash effect
+            canvasWrapper.style.boxShadow = '0 0 60px #ffff00, inset 0 0 30px #ffff00';
+            setTimeout(() => canvasWrapper.style.boxShadow = '', 400);
+            
+            // Big floating text
+            spawnFloatingText(`SPEED UP! LV.${level}`, canvas.width / 2, canvas.height / 2, '#ffff00');
+            
+            // Particle burst
+            for (let i = 0; i < 50; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    life: 1.0,
+                    decay: 0.015 + Math.random() * 0.02,
+                    color: '#ffff00',
+                    size: Math.random() * 6 + 3
+                });
+            }
+            
+            // Screen shake
+            triggerShake(20, 30);
+            
+            // Update UI
+            const speedDisplay = document.getElementById('speed-display');
+            const speedLevel = document.getElementById('speed-level');
+            speedLevel.innerText = level;
+            speedDisplay.classList.add('text-yellow-400');
+            setTimeout(() => speedDisplay.classList.remove('text-yellow-400'), 2000);
         }
 
         function updateVFX() {
@@ -553,6 +592,8 @@
                     triggerShake(10, 20); // Big shake on start
                 } else if (data.type === 'state') {
                     processNewState(data);
+                } else if (data.type === 'speedup') {
+                    triggerSpeedUp(data.level);
                 } else if (data.type === 'gameover') {
                     sysInfo.innerText = "SYSTEM HALTED";
                     gameOverOverlay.classList.remove('hidden');
@@ -601,6 +642,10 @@
             const p2Percent = 100 - p1Percent;
             tugBarP1.style.width = `${p1Percent}%`;
             tugBarP2.style.width = `${p2Percent}%`;
+            
+            // Update speed display
+            document.getElementById('speed-level').innerText = newState.speedLevel || 1;
+            document.getElementById('lines-count').innerText = newState.linesCleared || 0;
         }
 
         // --- Input Handling ---
