@@ -202,7 +202,9 @@
         const COLORS = {
             1: { hex: '#ff007f', rgb: '255, 0, 127' },   // Player 1 Pink
             2: { hex: '#00f0ff', rgb: '0, 240, 255' },    // Player 2 Cyan
-            3: { hex: '#888888', rgb: '136, 136, 136' }    // Neutral Gray
+            3: { hex: '#888888', rgb: '136, 136, 136' },   // Neutral Gray
+            4: { hex: '#ff66b3', rgb: '255, 102, 179' },  // Player 1 Ghost
+            5: { hex: '#66f7ff', rgb: '102, 247, 255' }   // Player 2 Ghost
         };
 
         // --- DOM Elements ---
@@ -383,7 +385,7 @@
                 state.grid.forEach((row, y) => {
                     row.forEach((cell, x) => {
                         if (cell !== 0) {
-                            drawBlock(x, y, COLORS[cell].hex, COLORS[cell].rgb);
+                            drawBlock(x, y, COLORS[cell].hex, COLORS[cell].rgb, false, cell === 4 || cell === 5);
                         }
                     });
                 });
@@ -448,11 +450,16 @@
             });
         }
 
-        function drawBlock(x, y, hex, _rgbStr, isActive = false) {
+        function drawBlock(x, y, hex, _rgbStr, isActive = false, isGhost = false) {
             const px = x * BLOCK_SIZE;
             const py = y * BLOCK_SIZE;
             const bs = BLOCK_SIZE;
             
+            if (isGhost) {
+                const blink = Math.floor(Date.now() / 180) % 2 === 0;
+                ctx.globalAlpha = blink ? 0.35 : 0.75;
+            }
+
             // Core
             ctx.fillStyle = hex;
             ctx.fillRect(px + 1, py + 1, bs - 2, bs - 2);
@@ -462,14 +469,16 @@
             ctx.fillRect(px + 3, py + 3, bs - 6, bs - 6);
             
             // Glow effect for active pieces
-            if (isActive) {
-                ctx.shadowBlur = 10;
+            if (isActive || isGhost) {
+                ctx.shadowBlur = isGhost ? 6 : 10;
                 ctx.shadowColor = hex;
                 ctx.strokeStyle = '#fff';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(px + 1, py + 1, bs - 2, bs - 2);
                 ctx.shadowBlur = 0;
             }
+
+            ctx.globalAlpha = 1.0;
         }
 
         // --- Game Logic & Network ---
